@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import connectDB from './config/db.js';
 import 'dotenv/config';
-import authRoutes from './routes/authRoutes.js';
+import { clerkWebhooks } from './controllers/webhooks.js';
 
 const app = express();
 
@@ -23,7 +23,8 @@ app.use(express.json({
 app.get('/', (req, res) => {
     res.send('API working!');
 });
-app.use('/api/auth', authRoutes);
+app.post('/webhooks', clerkWebhooks);
+
 
 
 const PORT = process.env.PORT || 5000;

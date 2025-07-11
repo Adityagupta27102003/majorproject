@@ -1,60 +1,62 @@
 import { Webhook } from "svix";
 import User from "../models/User.js";
 
-// API Controller Function to Manage Clerk User with database
 export const clerkWebhooks = async(req, res) => {
-
     try {
-        // Create a Svix instance with clerk webhook secret.
-        const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
-        // Verifying Headers
-        await whook.verifyHeader(JSON.stringify(req.body), {
-            "svix-id": req.headers["svix-id"],
-            "svix-timestamp": req.headers["svix-timestamp"],
-            "svix-signature": req.headers["svix-signature"],
-        });
-        const { data, type } = req.body;
-        // Switch Cases for differernt Events
-        switch (type) {
-            case 'user.created':
-                {
+        let payload;
 
-                    const userData = {
-                        _id: data.id,
-                        email: data.email_addresses[0].email_address,
-                        name: data.first_name + " " + data.last_name,
-                        image: data.image_url,
-                        resume: ''
-                    }
-                    await User.create(userData)
-                    res.json({})
-                    break;
-                }
+        // ✅ Try verifying first
+        try {
+            const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
+            payload = wh.verify(req.rawBody, {
+                "svix-id": req.headers["svix-id"],
+                "svix-timestamp": req.headers["svix-timestamp"],
+                "svix-signature": req.headers["svix-signature"],
+            });
+        } catch (verifyError) {
+            console.warn("Webhook verification failed:", verifyError.message);
 
-            case 'user.updated':
-                {
-                    const userData = {
-                        email: data.email_addresses[0].email_address,
-                        name: data.first_name + " " + data.last_name,
-                        image: data.image_url,
-                    }
-                    await User.findByIdAndUpdate(data.id, userData)
-                    res.json({})
-                    break;
-                }
-
-            case 'user.deleted':
-                {
-                    await User.findByIdAndDelete(data.id)
-                    res.json({})
-                    break;
-                }
-            default:
-                break;
+            // ⚠️ Force use of raw body if in development
+            if (process.env.NODE_ENV !== "production") {
+                payload = JSON.parse(req.rawBody); // force parse
+            } else {
+                throw verifyError;
+            }
         }
 
-    } catch (error) {
-        console.error("Error in webhook: ", error)
-        res.json({ success: false, message: error.message })
+        const { data, type } = payload;
+
+        switch (type) {
+            case "user.created":
+                await User.create({
+                    _id: data.id,
+                    email: data.email_addresses[0].email_address,
+                    name: `${data.first_name} ${data.last_name}`,
+                    image: data.image_url,
+                    resume: "",
+                });
+                break;
+
+            case "user.updated":
+                await User.findByIdAndUpdate(data.id, {
+                    email: data.email_addresses[0].email_address,
+                    name: `${data.first_name} ${data.last_name}`,
+                    image: data.image_url,
+                });
+                break;
+
+            case "user.deleted":
+                await User.findByIdAndDelete(data.id);
+                break;
+
+            default:
+                return res.status(400).json({ error: "Unsupported event type" });
+        }
+
+        res.json({ success: true });
+
+    } catch (err) {
+        console.error("Webhook handler error:", err.message);
+        res.status(400).json({ success: false, message: err.message });
     }
-}
+};

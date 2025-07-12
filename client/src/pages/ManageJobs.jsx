@@ -1,10 +1,70 @@
-import React from 'react'
-import { manageJobsData } from '../assets/assets'
+import { useContext, useEffect, useState } from 'react'
 import moment from 'moment'
 import { useNavigate } from 'react-router-dom'
+import { AppContext } from '../context/AppContext'
+import axios from 'axios'
+import { toast } from 'react-toastify'
+import Loading from '../components/Loading'
+
 const ManageJobs = () => {
+
   const navigate = useNavigate()
- return jobs ? jobs.length === 0 ? (
+
+  const [jobs, setJobs] = useState(false)
+
+  const { backendUrl, companyToken } = useContext(AppContext)
+
+  // Function to fetch company Job Applications data 
+  const fetchCompanyJobs = async () => {
+
+    try {
+
+      const { data } = await axios.get(backendUrl + '/api/company/list-jobs',
+        { headers: { token: companyToken } }
+      )
+
+      if (data.success) {
+        setJobs(data.jobsData.reverse())
+      } else {
+        toast.error(data.message)
+      }
+
+    } catch (error) {
+      toast.error(error.message)
+    }
+
+  }
+
+  // Function to change Job Visibility 
+  const changeJobVisiblity = async (id) => {
+
+    try {
+
+      const { data } = await axios.post(backendUrl + '/api/company/change-visiblity',
+        { id },
+        { headers: { token: companyToken } }
+      )
+
+      if (data.success) {
+        toast.success(data.message)
+        fetchCompanyJobs()
+      } else {
+        toast.error(data.message)
+      }
+
+    } catch (error) {
+      toast.error(error.message)
+    }
+
+  }
+
+  useEffect(() => {
+    if (companyToken) {
+      fetchCompanyJobs()
+    }
+  }, [companyToken])
+
+  return jobs ? jobs.length === 0 ? (
     <div className='flex items-center justify-center h-[70vh]'>
       <p className='text-xl sm:text-2xl'>No Jobs Available or posted</p>
     </div>
@@ -23,7 +83,7 @@ const ManageJobs = () => {
             </tr>
           </thead>
           <tbody>
-            {manageJobsData.map((job, index) => (
+            {jobs.map((job, index) => (
               <tr key={index} className='text-gray-700'>
                 <td className='py-2 px-4 border-b max-sm:hidden'>{index + 1}</td>
                 <td className='py-2 px-4 border-b' >{job.title}</td>

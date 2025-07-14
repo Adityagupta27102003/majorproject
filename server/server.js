@@ -2,12 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import connectDB from './config/db.js';
 import 'dotenv/config';
-import { clerkWebhooks } from './controllers/webhooks.js';
-import companyRoutes from './routes/companyRoutes.js';
-import jobRoutes from './routes/jobRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import { clerkMiddleware } from '@clerk/express';
-import connectCloudinary from './config/cloudinary.js';
+import authRoutes from './routes/authRoutes.js';
+
 const app = express();
 
 // Database connection
@@ -28,6 +24,7 @@ app.use(clerkMiddleware())
 app.get('/', (req, res) => {
     res.send('API working!');
 });
+app.use('/api/auth', authRoutes);
 
 // Webhook endpoint
 app.post('/webhooks', clerkWebhooks);
